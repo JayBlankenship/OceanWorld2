@@ -9,6 +9,56 @@ function pseudoPerlinNoise(t, seed) {
     return (a + b + c) / 3;
 }
 
+// Calculate ocean surface height at given x,z coordinates (matches game.js exactly)
+function calculateOceanHeight(x, z) {
+    // Access the global ocean variables from game.js
+    // These are the exact same variables used by the global ocean mesh
+    const globalOceanTime = window.globalOceanTime || 0;
+    const globalOceanWaveState = window.globalOceanWaveState || { 
+        amp: 1.0, 
+        speed: 1.0, 
+        storms: [] 
+    };
+    
+    // Base ocean level (matches game.js)
+    let height = 20.0;
+    
+    // Apply the exact same wave calculation as in game.js
+    const t = globalOceanTime;
+    
+    // Use the exact same getLocalWaveMultiplier function from game.js
+    function getLocalWaveMultiplier(x, z) {
+        // Storms: if inside a storm, use its amp
+        let localAmp = 1.0;
+        let swirlY = 0;
+        for (let storm of globalOceanWaveState.storms) {
+            const dx = x - storm.x;
+            const dz = z - storm.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < storm.radius) {
+                // Smoother, more natural swirl
+                swirlY += Math.sin(storm.swirl + dist * 0.02) * storm.amp * (1 - dist / storm.radius) * 0.5;
+                localAmp = Math.max(localAmp, 1 + (storm.amp - 1) * (1 - dist / storm.radius));
+            }
+        }
+        // Example: Calm in center, wilder at edges
+        const dist = Math.sqrt(x * x + z * z);
+        let base = 1.0;
+        if (dist < 30) base = 0.7;
+        if (dist > 80) base = 1.5;
+        return base * localAmp + swirlY;
+    }
+    
+    const waveMultiplier = getLocalWaveMultiplier(x, z);
+    
+    // Apply the exact wave formulas from game.js
+    height += Math.sin(0.09 * x + t * 0.7) * 1.2 * waveMultiplier;
+    height += Math.cos(0.08 * z + t * 0.5) * 1.0 * waveMultiplier;
+    height += Math.sin(0.07 * (x + z) + t * 0.3) * 0.7 * waveMultiplier;
+    
+    return height;
+}
+
 export function createShipPawn(isAI = false, color = null) {
     // Determine color: custom color takes priority, then AI/human default
     let shipColor;
@@ -32,7 +82,7 @@ export function createShipPawn(isAI = false, color = null) {
         opacity: 0.3
     });
     const placeholder = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
-    placeholder.position.y = 0.5;
+    placeholder.position.y = 0; // Position on water surface
     playerGroup.add(placeholder);
     
     // Try to load Ship1.glb first
@@ -48,7 +98,7 @@ export function createShipPawn(isAI = false, color = null) {
             
             // Configure and add the GLTF ship
             shipModel.scale.setScalar(1.0); // Adjust scale as needed
-            shipModel.position.y = 0.5;
+            shipModel.position.y = 0; // Position on water surface
             
             // Apply color tint to ship materials
             shipModel.traverse((child) => {
@@ -93,7 +143,7 @@ export function createShipPawn(isAI = false, color = null) {
                 emissiveIntensity: 0.05
             });
             const shipMesh = new THREE.Mesh(shipGeometry, shipMaterial);
-            shipMesh.position.y = 0.5;
+            shipMesh.position.y = 0; // Position on water surface
             playerGroup.add(shipMesh);
             
             // Add sailing ship details
@@ -106,7 +156,7 @@ export function createShipPawn(isAI = false, color = null) {
 
     // Create and add star to the player group (positioned above ship)
     const star = createStar(shipColor);
-    star.position.y = 2.0; // Position star above ship
+    star.position.y = 5.0; // Position star higher above ship
     playerGroup.add(star);
 
     // Ship motion variables for ocean movement
@@ -123,7 +173,7 @@ export function createShipPawn(isAI = false, color = null) {
     let pitchAmplitude = 0.03 + Math.random() * 0.02;
 
     // Add properties for game mechanics
-    playerGroup.position.set(0, 18, 0); // Start above water level
+    playerGroup.position.set(0, 20, 0); // Start at water level (ocean surface is at y=20)
     playerGroup.velocity = new THREE.Vector3();
     playerGroup.angularVelocity = 0;
     playerGroup.targetRotationY = 0;
@@ -136,23 +186,33 @@ export function createShipPawn(isAI = false, color = null) {
 
     // Enhanced update function for ship movement on ocean
     playerGroup.update = function(deltaTime) {
-        // Ocean bobbing motion
-        bobPhase += deltaTime * bobSpeed;
-        rollPhase += deltaTime * rollSpeed;
-        pitchPhase += deltaTime * pitchSpeed;
+        // Calculate the actual ocean surface height at the ship's position
+        const oceanSurfaceY = calculateOceanHeight(this.position.x, this.position.z);
         
-        // Apply realistic ship motion on ocean
-        const bobOffset = Math.sin(bobPhase) * bobAmplitude;
-        const rollOffset = Math.sin(rollPhase) * rollAmplitude;
-        const pitchOffset = Math.sin(pitchPhase) * pitchAmplitude;
+        // Attach ship directly to the ocean surface
+        this.position.y = oceanSurfaceY;
         
-        // Apply bobbing to main group position
-        this.position.y = 18 + bobOffset;
-        
-        // Apply rolling and pitching to ship model only (not the whole group)
+        // Apply rolling and pitching to ship model based on local wave slope
         if (this.shipModel) {
-            this.shipModel.rotation.z = rollOffset;
-            this.shipModel.rotation.x = pitchOffset;
+            // Calculate wave slope for realistic ship tilting
+            const sampleDistance = 2.0; // Sample points around ship for slope calculation
+            const heightFront = calculateOceanHeight(this.position.x, this.position.z + sampleDistance);
+            const heightBack = calculateOceanHeight(this.position.x, this.position.z - sampleDistance);
+            const heightLeft = calculateOceanHeight(this.position.x - sampleDistance, this.position.z);
+            const heightRight = calculateOceanHeight(this.position.x + sampleDistance, this.position.z);
+            
+            // Calculate pitch (front-back tilt) and roll (left-right tilt)
+            const pitch = Math.atan2(heightFront - heightBack, sampleDistance * 2) * 0.5; // Reduce intensity
+            const roll = Math.atan2(heightRight - heightLeft, sampleDistance * 2) * 0.5;
+            
+            // Apply natural ship motion based on wave slopes
+            this.shipModel.rotation.x = pitch;
+            this.shipModel.rotation.z = roll;
+            
+            // Add subtle additional bobbing for ship feel
+            const time = Date.now() * 0.001;
+            const bobOffset = Math.sin(time * 0.8) * 0.1;
+            this.shipModel.position.y = bobOffset;
         }
         
         // Update angular velocity towards target
@@ -167,13 +227,16 @@ export function createShipPawn(isAI = false, color = null) {
         // Update velocity
         this.velocity.multiplyScalar(this.deceleration);
         
-        // Apply velocity to position
+        // Apply velocity to position (but Y will be overridden by ocean surface)
         this.position.add(this.velocity.clone().multiplyScalar(deltaTime));
+        
+        // Recalculate ocean surface height after movement and reattach
+        const newOceanSurfaceY = calculateOceanHeight(this.position.x, this.position.z);
+        this.position.y = newOceanSurfaceY;
         
         // Clamp position to reasonable bounds
         this.position.x = Math.max(-2000, Math.min(2000, this.position.x));
         this.position.z = Math.max(-2000, Math.min(2000, this.position.z));
-        this.position.y = Math.max(15, Math.min(25, this.position.y));
     };
 
     // Add keyboard controls for human players

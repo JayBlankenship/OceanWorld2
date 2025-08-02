@@ -18,6 +18,10 @@ let globalOceanWaveState = {
 };
 let globalOceanSize = 120;
 
+// Make ocean variables globally accessible for ship synchronization
+window.globalOceanTime = globalOceanTime;
+window.globalOceanWaveState = globalOceanWaveState;
+
 function createGlobalOcean(scene, size = 120, segments = 64) {
     // Create a large transparent ocean surface that sits above the terrain
     size = 2400; // Doubled from 1200
@@ -441,22 +445,21 @@ function initGame() {
             direction.normalize();
 
             if (moveState.forward) {
-                playerPawn.position.x += playerSpeed * deltaTime * direction.x;
-                playerPawn.position.z += playerSpeed * deltaTime * direction.z;
+                // Ship movement handled by processInput
             }
             if (moveState.backward) {
-                playerPawn.position.x -= playerSpeed * deltaTime * direction.x;
-                playerPawn.position.z -= playerSpeed * deltaTime * direction.z;
+                // Ship movement handled by processInput
             }
             if (moveState.left) {
-                const leftVector = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
-                playerPawn.position.x += playerSpeed * deltaTime * leftVector.x;
-                playerPawn.position.z += playerSpeed * deltaTime * leftVector.z;
+                // Ship movement handled by processInput
             }
             if (moveState.right) {
-                const rightVector = new THREE.Vector3().crossVectors(direction, camera.up).normalize();
-                playerPawn.position.x += playerSpeed * deltaTime * rightVector.x;
-                playerPawn.position.z += playerSpeed * deltaTime * rightVector.z;
+                // Ship movement handled by processInput
+            }
+            
+            // Process ship input if available
+            if (playerPawn.processInput) {
+                playerPawn.processInput();
             }
 
             // Update player pawn and star animations
@@ -490,9 +493,7 @@ function initGame() {
                 y += Math.sin(0.09 * px + t * 0.7) * 1.2 * getLocalWaveMultiplier(px, pz);
                 y += Math.cos(0.08 * pz + t * 0.5) * 1.0 * getLocalWaveMultiplier(px, pz);
                 y += Math.sin(0.07 * (px + pz) + t * 0.3) * 0.7 * getLocalWaveMultiplier(px, pz);
-                // Offset to match ocean mesh Y position (ocean mesh is at y=0.1)
-                const aboveWaterOffset = 2.2 + 20;
-                playerPawn.position.y = y + 0.1 + aboveWaterOffset;
+                // Ship handles its own Y position and ocean bobbing
             }
             playerPawn.update(deltaTime, animationTime);
 
@@ -562,6 +563,11 @@ function initGame() {
                 globalOcean.position.z = playerPawn.position.z;
                 globalOcean.position.y = 20.0; // Match the mesh creation position
                 globalOceanTime += deltaTime * globalOceanWaveState.speed;
+                
+                // Update window variables for ship synchronization
+                window.globalOceanTime = globalOceanTime;
+                window.globalOceanWaveState = globalOceanWaveState;
+                
                 const pos = globalOceanGeometry.attributes.position;
                 const seg = globalOceanSegments;
                 let t = globalOceanTime;
