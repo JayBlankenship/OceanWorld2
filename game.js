@@ -1,5 +1,6 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
 import { createPlayerPawn } from './playerPawn.js';
+import { createShipPawn } from './shipPawn.js';
 // --- GLOBAL OCEAN MESH ---
 let globalOcean = null;
 let globalOceanGeometry = null;
@@ -210,8 +211,8 @@ function initGame() {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // Create player pawn and star
-    const playerPawn = createPlayerPawn(false); // false indicates human player
+    // Create ship pawn and star
+    const playerPawn = createShipPawn(false); // false indicates human player
     scene.add(playerPawn);
 
     // Initialize networked player manager for red replicated players

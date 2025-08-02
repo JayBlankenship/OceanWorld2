@@ -1,9 +1,10 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
 import { createPlayerPawn } from './playerPawn.js';
+import { createShipPawn } from './shipPawn.js';
 
 export function createAIPlayer() {
-    // Create AI pawn with isAI=true to get purple color and no keyboard controls
-    const aiPawn = createPlayerPawn(true);
+    // Create AI ship with isAI=true to get purple color and no keyboard controls
+    const aiPawn = createShipPawn(true);
     
     // Set random starting position
     aiPawn.position.set(
