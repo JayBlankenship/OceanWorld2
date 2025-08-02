@@ -36,13 +36,17 @@ export class UnifiedTerrain {
         const surfaceSize = 4000; // Much larger than render distance
         const surfaceGeometry = new THREE.PlaneGeometry(surfaceSize, surfaceSize, 128, 128);
         
-        // Create animated wave material
-        const surfaceMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00aaff, // Light blue
+        // Create cartoon water material with magical sparkles
+        const surfaceMaterial = new THREE.MeshLambertMaterial({
+            color: 0x0099ff, // Brighter cartoon blue
             transparent: true,
-            opacity: 0.4, // Semi-transparent
+            opacity: 0.6, // More transparent for magical effect
             side: THREE.DoubleSide,
-            wireframe: false
+            wireframe: false,
+            // Enhanced cartoon water surface with sparkles
+            emissive: 0x003366, // Magical blue-green glow
+            emissiveIntensity: 0.18, // Higher intensity for sparkles
+            shininess: 140 // Very sparkly surface
         });
         
         this.oceanSurface = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
@@ -135,12 +139,16 @@ export class UnifiedTerrain {
         geometry.setIndex(indices);
         geometry.computeVertexNormals();
         
-        const material = new THREE.MeshBasicMaterial({
+        const material = new THREE.MeshLambertMaterial({
             vertexColors: true,
             transparent: true,
-            opacity: 0.9, // Slightly more opaque for better water surface visibility
+            opacity: 0.75, // Slightly more transparent for consistency
             side: THREE.DoubleSide,
-            wireframe: false
+            wireframe: false,
+            // Enhanced cartoon underwater terrain with sparkles
+            emissive: 0x001144, // Magical underwater glow
+            emissiveIntensity: 0.12, // Sparkly underwater effect
+            shininess: 80 // Moderate cartoon reflectivity
         });
         
         const mesh = new THREE.Mesh(geometry, material);
@@ -491,8 +499,8 @@ export class UnifiedTerrain {
         
         // Update surface material opacity based on storms
         if (avgStormIntensity > 0) {
-            const stormOpacity = 0.4 + avgStormIntensity * 0.2;
-            this.oceanSurface.material.opacity = Math.min(stormOpacity, 0.8);
+            const stormOpacity = 0.6 + avgStormIntensity * 0.15; // Slightly more transparent
+            this.oceanSurface.material.opacity = Math.min(stormOpacity, 0.75);
             
             // Add slight color shift during storms
             const stormTint = avgStormIntensity * 0.3;
@@ -502,7 +510,7 @@ export class UnifiedTerrain {
                 1.0 - stormTint * 0.1
             );
         } else {
-            this.oceanSurface.material.opacity = 0.4;
+            this.oceanSurface.material.opacity = 0.6; // More transparent for consistency
             this.oceanSurface.material.color.setRGB(0, 0.67, 1.0); // Reset to light blue
         }
     }

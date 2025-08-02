@@ -113,11 +113,16 @@ function createGlobalOcean(scene, size = 120, segments = 64) {
     }
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     
-    const material = new THREE.MeshBasicMaterial({
+    const material = new THREE.MeshLambertMaterial({
         vertexColors: true, // Use vertex colors for enhanced depth effect
         wireframe: false, // Solid surface, not wireframe
-        transparent: false, // Remove transparency to fix visibility issues
-        side: THREE.DoubleSide // Render both sides to prevent culling
+        transparent: true, // Add slight transparency for depth perception
+        opacity: 0.75, // Subtle transparency to match terrain planes
+        side: THREE.DoubleSide, // Render both sides to prevent culling
+        // Enhanced cartoon water surface with sparkles
+        emissive: 0x002255, // Stronger magical blue glow
+        emissiveIntensity: 0.2, // Higher intensity for cartoon sparkle effect
+        shininess: 120 // Very reflective cartoon water surface
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(0, 20.0, 0); // Position ocean surface properly relative to player height
@@ -176,6 +181,28 @@ function loadSettings() {
 
 function initGame() {
     const scene = new THREE.Scene();
+    
+    // Set a simple sky color background
+    scene.background = new THREE.Color(0x87ceeb); // Sky blue background
+    
+    // === SIMPLE LOW-COST LIGHTING SETUP ===
+    
+    // Ambient light - provides soft overall illumination
+    const ambientLight = new THREE.AmbientLight(0x404080, 0.4); // Soft blue ambient light
+    scene.add(ambientLight);
+    
+    // Directional light - simulates sunlight
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(100, 200, 50); // High in the sky
+    directionalLight.castShadow = false; // Keep shadows off for performance
+    scene.add(directionalLight);
+    
+    // Optional: Add a subtle second light for fill lighting
+    const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.3); // Sky blue fill light
+    fillLight.position.set(-50, 100, -100); // From opposite direction
+    fillLight.castShadow = false;
+    scene.add(fillLight);
+    
     // Add global animated ocean mesh (wireframe, ripple effect)
     createGlobalOcean(scene, 120, 64);
     // Increase far plane to 5000 and near plane to 1.0 for large world and high ocean
